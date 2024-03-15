@@ -1,0 +1,57 @@
+name: ref
+run-name: ${{ github.workflow }} (${{ github.ref_name }} by ${{ github.actor }})
+concurrency: ${{ github.workflow }}
+on:
+  repository_dispatch:
+    types:
+      - ref
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_REF: ${{ github.event.client_payload.ref }}
+    steps:
+      - name: Generate token
+        id: generate-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.BOT_GITHUB_APP_ID }}
+          private-key: ${{ secrets.BOT_GITHUB_APP_PRIVATE_KEY }}
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          token: ${{ steps.generate-token.outputs.token }}
+      - name: Update develop ref
+        if: ${{ !startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
+        run: yq -i '.ref = "${{ env.GITHUB_REF }}"' ./ref/develop.yaml
+      - name: Update staging ref
+        if: ${{ startsWith(env.GITHUB_REF, 'pre-release-') }}
+        run: yq -i '.ref = "${{ env.GITHUB_REF }}"' ./ref/staging.yaml
+      - name: Udpate production ref
+        if: ${{ startsWith(env.GITHUB_REF, 'release-') }}
+        run: yq -i '.ref = "${{ env.GITHUB_REF }}"' ./ref/production.yaml
+      - name: Checkout branch
+        run: |
+          git branch ${{ env.GITHUB_REF }}
+          git checkout ${{ env.GITHUB_REF }}
+      - name: Git push
+        run: |
+          git config --global credential.helper 'github-apps -privatekey ${{ secrets.BOT_GITHUB_APP_PRIVATE_KEY }} -appid ${{ secrets.BOT_GITHUB_APP_ID }} -login ${{ github.repository_owner }}'
+          git config user.name github-actions
+          git config user.email github-actions@github.com
+          git add .
+          git commit -m "update ref ${{ env.GITHUB_REF }}"
+          git push --set-upstream origin ${{ env.GITHUB_REF }}
+      - name: Create PR
+        id: create-pr
+        run: |
+          export GH_TOKEN=${{ steps.generate-token.outputs.token }}
+          body=""
+          url=$(gh pr create --base main --title "Release ${{ github.event.client_payload.ref }}" --body "${body}")
+          echo "url=${url}" >> $GITHUB_OUTPUT
+      - name: Merge PR
+        if: ${{ !startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
+        env:
+          GITHUB_TOKEN: ${{ steps.generate-token.outputs.token }}
+        run: |
+          gh pr merge ${{ steps.create-pr.outputs.url }} --auto
