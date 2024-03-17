@@ -45,7 +45,7 @@ jobs:
           git commit -m "update ref ${{ env.GITHUB_REF }}"
           git push --set-upstream origin ${branch}
       - name: Checkout And Push (Staging and Production)
-        if: ${{ startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
+        if: ${{ startsWith(env.GITHUB_REF, 'pre-release-') || startsWith(env.GITHUB_REF, 'release-') }}
         run: |
           git branch ${{ env.GITHUB_REF }}
           git checkout ${{ env.GITHUB_REF }}
