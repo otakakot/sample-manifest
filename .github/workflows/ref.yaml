@@ -30,15 +30,25 @@ jobs:
       - name: Udpate production ref
         if: ${{ startsWith(env.GITHUB_REF, 'release-') }}
         run: yq -i '.ref = "${{ env.GITHUB_REF }}"' ./ref/production.yaml
-      - name: Checkout branch
-        run: |
-          git branch ${{ env.GITHUB_REF }}
-          git checkout ${{ env.GITHUB_REF }}
-      - name: Git push
+      - name: Git config
         run: |
           git config --global credential.helper 'github-apps -privatekey ${{ secrets.BOT_GITHUB_APP_PRIVATE_KEY }} -appid ${{ secrets.BOT_GITHUB_APP_ID }} -login ${{ github.repository_owner }}'
           git config user.name github-actions
           git config user.email github-actions@github.com
+      - name: Checkout And Push (Develop)
+        if : ${{ !startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
+        run: |
+          branch=$(echo ${{ env.GITHUB_REF }} | cut -c 1-30)
+          git branch ${branch}
+          git checkout ${branch}
+          git add .
+          git commit -m "update ref ${{ env.GITHUB_REF }}"
+          git push --set-upstream origin ${branch}
+      - name: Checkout And Push (Staging and Production)
+        if: ${{ startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
+        run: |
+          git branch ${{ env.GITHUB_REF }}
+          git checkout ${{ env.GITHUB_REF }}}}
           git add .
           git commit -m "update ref ${{ env.GITHUB_REF }}"
           git push --set-upstream origin ${{ env.GITHUB_REF }}
