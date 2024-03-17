@@ -48,7 +48,7 @@ jobs:
         if: ${{ startsWith(env.GITHUB_REF, 'pre-release-') && !startsWith(env.GITHUB_REF, 'release-') }}
         run: |
           git branch ${{ env.GITHUB_REF }}
-          git checkout ${{ env.GITHUB_REF }}}}
+          git checkout ${{ env.GITHUB_REF }}
           git add .
           git commit -m "update ref ${{ env.GITHUB_REF }}"
           git push --set-upstream origin ${{ env.GITHUB_REF }}
